@@ -1,0 +1,109 @@
+---
+title: "Automatic or Manual Transmission for MPG"
+author: "liuyong"
+date: '2015-11-22'
+output: html_document
+---
+
+## Data Description
+
+The data come from the datasets of mtcars. It was extracted from 1974 Motor Trend US magazine, and comprises fuel consumption and 10 aspects of  automobile design and performance for 32 automobiles (1973¨C74 models).
+
+The report focus on the parameter of MPG (miles per gallon). Base on the MPG, it gives the analysis which is better between automatic and manual transmission. 
+
+
+## Data Preprocess
+
+At first, we have a simple preprocess for the mtcars dataset. Including 
+```{r,message=FALSE}
+library(knitr)
+library(caret)
+data(mtcars)
+data <- mtcars
+class(data$cyl ) <- as.factor(data$cyl)
+class(data$vs) <- as.factor(data$vs)
+
+####split the data base on the automatic and manual transmission
+####remove the variable of am
+autoTrans <- data[data$am == 0,]
+manualTrans <- data[data$am == 1,]
+autoTrans <- autoTrans[,-9]
+manualTrans <- manualTrans[,-9]
+
+### other preprocess if pca for the data,
+autoPCAProcess <- preProcess(autoTrans[2:10],method="pca",thresh=0.9)
+autoPCAData <- predict(autoPCAProcess,autoTrans[2:10])
+autoPCAData <- cbind(autoPCAData,autoTrans$mpg)
+names(autoPCAData)[length(names(autoPCAData)) ] <- "mpg"
+
+manualPCAProcess <- preProcess(manualTrans[2:10],method="pca",thresh=0.9)
+manualPCAData <- predict(manualPCAProcess,manualTrans[2:10])
+manualPCAData <- cbind(manualPCAData,manualTrans$mpg)
+names(manualPCAData)[length(names(manualPCAData))] <- "mpg"
+```
+
+
+## Analysis base on the Linear Regression
+
+The basic linear regression for the mtcars:
+```{r}
+autoFit <- lm(mpg~.,data=autoTrans)
+manualFit <- lm(mpg~.,data=manualTrans)
+###pca linear regression
+autoPCAFit <- lm(mpg~.,data=autoPCAData)
+manualPCAFit <- lm(mpg~.,data=manualPCAData)
+```
+So, we can get the mean and standard deviation for the MPG base on the basic model and pca model.
+```{r,echo=FALSE}
+tab_ret <- data.frame(
+  mean_auto=c(mean(autoTrans$mpg),mean(predict(autoFit,autoTrans)),mean(predict(autoPCAFit,autoPCAData)) ), sd_auto=c(sd(autoTrans$mpg),sd(predict(autoFit,autoTrans)),sd(predict(autoPCAFit,autoPCAData)) ),mean_manual=c(mean(manualTrans$mpg),mean(predict(manualFit,manualTrans)),mean(predict(manualPCAFit,manualPCAData)) ), sd_manual=c(sd(manualTrans$mpg),sd(predict(manualFit,manualTrans)),sd(predict(manualPCAFit,manualPCAData)) ),row.names=c("actual","basic linear","pca linear"))
+tab_ret
+```
+According to the mean of MPG between auto and manual, we hold the manual is better than the auto. Because the manual transmission give the larger miles for every gallon.
+
+But the manual also have a problem: the standard deviation is larger than the auto transmission. It means the manual has a float up or down base on the mean. 
+
+We also can give a hypothesis test.
+null hypothesis: The mean of manual and auto is equal.
+alternative hypothesis: The mean of auto is smaller than the manual.
+```{r}
+out <- t.test(autoTrans$mpg,manualTrans$mpg)
+out$p.value
+```
+The p-value is 0.001, so we reject the null hypothesis and accept the alternative hypothesis. The mean of auto is smaller than the manual.
+
+## Model Selection
+The report gives two linear regression model: basic linear model and pca preprocess linear model. Following is the summary of residuals for the two models.
+
+The summary of residuals of auto PCA model:
+```{r,echo=FALSE}
+summary(autoPCAFit$residuals)
+```
+The summary of residuals of auto basic model:
+```{r,echo=FALSE}
+summary(autoFit$residuals)
+```
+The conclusion is same for the manual transimission. So we hold that the PCA model is much better, because it gives less residuals. The attachments gives the plot of pca predict model.
+
+## summary
+
+As described in the end, we hold the manual transmission is much better in the MPG parameter . The MPG mean of auto transmission is 17 miles for a gallon, however, the manual transmission is 24 miles. The hypothesis test accept the the manual have much further mileages. Although it has a large  standard deviation, we also accept the manual has a better performance in the MPG parameter.
+
+## Appendix 
+```{r,echo=FALSE}
+par(mfrow = c(2, 2))
+plot(autoFit,main="The basic linear model for auto" )
+```
+```{r,echo=FALSE}
+par(mfrow = c(2, 2))
+plot(autoPCAFit,main="The PCA linear model for auto" )
+```
+
+```{r,echo=FALSE,warning=FALSE}
+par(mfrow = c(2, 2))
+plot(manualFit,main="The basic linear model for manual" )
+```
+```{r,echo=FALSE}
+par(mfrow = c(2, 2))
+plot(manualPCAFit,main="The PCA linear model for manual" )
+```
